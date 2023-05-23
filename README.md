@@ -6,6 +6,12 @@ Simple benchmark for synthetic NFS load
 
 `nfs-bench` use libnfs to perform NFS requests
 
+## Building
+
+```
+cmake .. -DCMAKE_PREFIX_PATH=/usr/lib64/openmpi
+```
+
 ## Use with SLURM
 
 ```

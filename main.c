@@ -19,6 +19,9 @@
 #include <nfsc/libnfs.h>
 #include <getopt.h>
 
+#ifdef HAVE_MPI
+#  include <mpi.h>
+#endif // HAVE_MPI
 
 #define DEFAULT_FILES 100
 
@@ -44,6 +47,9 @@ int main(int argc, char *argv[]) {
     struct tms dummy;
     double duration;
 
+    int size, rank;
+    int res;
+
     while ((c = getopt(argc, argv, "f:")) != EOF) {
         switch (c) {
             case 'f':
@@ -57,6 +63,28 @@ int main(int argc, char *argv[]) {
     if (((argc - optind) != 1)) {
         usage();
     }
+
+#ifdef HAVE_MPI
+    res = MPI_Init(&argc, &argv);
+    if (res != MPI_SUCCESS) {
+        fprintf (stderr, "MPI_Init failed\n");
+        exit(1);
+    }
+   
+    res = MPI_Comm_size(MPI_COMM_WORLD, &size);
+    if (res != MPI_SUCCESS) {
+        fprintf (stderr, "MPI_Comm_size failed\n");
+        exit(1);
+    } 
+
+    res = MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    if (res != MPI_SUCCESS) {
+        fprintf (stderr, "MPI_Comm_rank failed\n");
+        exit(1);
+    } 
+
+    fprintf(stdout, "Rank %d of %d\n", rank, size);
+#endif // HAVE_MPI
 
     hostname[1023] = '\0';
     if (gethostname(hostname, 1023) != 0) {
@@ -85,6 +113,10 @@ int main(int argc, char *argv[]) {
         goto out;
     }
 
+#ifdef HAVE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif // HAVE_MPI
+
     printf("Running %d iterations\n", files);
     rtime = times(&dummy);
     for (i = 0; i < files; i++) {
@@ -105,6 +137,14 @@ int main(int argc, char *argv[]) {
            (double) files / duration, duration);
 
     out:
+
+#ifdef HAVE_MPI
+    res = MPI_Finalize();
+    if (res != MPI_SUCCESS) {
+        fprintf (stderr, "MPI_Finalize failed\n");
+    }
+#endif // HAVE_MPI
+
     if (nfs != NULL) {
         nfs_destroy_context(nfs);
     }

@@ -13,8 +13,15 @@ find_library(LIBNFS_LIBRARIES
   PATHS /usr/lib64
   NO_DEFAULT_PATH)
 
+find_package(MPI)
+if (MPI_FOUND)
+  add_definitions("-DHAVE_MPI")
+else()
+  message (STATUS "MPI is not defined. Building simple version")  
+endif()
 
-include_directories(${LIBNFS_INCLUDE_DIRS})
+
+include_directories(${LIBNFS_INCLUDE_DIRS} ${MPI_INCLUDE_DIR})
 
 add_executable(nfs_bench main.c)
-target_link_libraries(nfs_bench ${LIBNFS_LIBRARIES})
+target_link_libraries(nfs_bench ${LIBNFS_LIBRARIES} MPI::MPI_C)
