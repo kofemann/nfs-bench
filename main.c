@@ -47,8 +47,9 @@ int main(int argc, char *argv[]) {
     struct tms dummy;
     double duration;
 
-    int size, rank;
     int res;
+    // in case of MPI it will be reassigned
+    int size = 1, rank = 0;
 
     while ((c = getopt(argc, argv, "f:")) != EOF) {
         switch (c) {
@@ -70,7 +71,7 @@ int main(int argc, char *argv[]) {
         fprintf (stderr, "MPI_Init failed\n");
         exit(1);
     }
-   
+
     res = MPI_Comm_size(MPI_COMM_WORLD, &size);
     if (res != MPI_SUCCESS) {
         fprintf (stderr, "MPI_Comm_size failed\n");
@@ -82,8 +83,6 @@ int main(int argc, char *argv[]) {
         fprintf (stderr, "MPI_Comm_rank failed\n");
         exit(1);
     } 
-
-    fprintf(stdout, "Rank %d of %d\n", rank, size);
 #endif // HAVE_MPI
 
     hostname[1023] = '\0';
@@ -116,8 +115,9 @@ int main(int argc, char *argv[]) {
 #ifdef HAVE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
 #endif // HAVE_MPI
-
-    printf("Running %d iterations\n", files);
+    if (rank == 0) {
+        fprintf(stdout , "Running %d iterations per process, totally %d processes.\n", files, size);
+    }
     rtime = times(&dummy);
     for (i = 0; i < files; i++) {
 
@@ -132,10 +132,17 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    duration = ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
-    printf("Speed:  %2.2f rps in %2.2fs\n",
-           (double) files / duration, duration);
+#ifdef HAVE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif // HAVE_MPI
 
+    duration = ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
+    if (rank == 0) {
+        fprintf(stdout, "Speed:  %2.2f rps in %2.2fs\n",
+               (double) (files * size) / duration, duration);
+    }
+
+    rc = 0;
     out:
 
 #ifdef HAVE_MPI
@@ -148,6 +155,7 @@ int main(int argc, char *argv[]) {
     if (nfs != NULL) {
         nfs_destroy_context(nfs);
     }
+
     if (url != NULL) {
         nfs_destroy_url(url);
     }
