@@ -21,12 +21,13 @@ cmake .. -DCMAKE_PREFIX_PATH=/usr/lib64/openmpi
 unset LD_PRELOAD
 source /etc/profile.d/modules.sh
 module purge
-module load mpi/openmpi-x86_64
+module load maxwell openmpi/4.1.1
  
-nprocs=$(( $(nproc) ))
- 
-# -N ensure $nprocs processes per node
-mpirun -N $nprocs /usr/local/bin/nfs_bench -f 1000 nfs://lab-host/exports/data/
+mpirun -mca pml ucx \
+   -mca mpi_cuda_support 0 \
+   -mca btl_tcp_if_include ib0 \
+   --bind-to none \
+   /usr/local/bin/nfs_bench -f 1000 nfs://nfs-lab/exports/data/
 ```
 
 ### Staring the job
