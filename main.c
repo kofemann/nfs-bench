@@ -154,10 +154,15 @@ int main(int argc, char *argv[]) {
 #endif // HAVE_MPI
 
     if (rank == 0) {
-        fprintf(stdout, "Speed:  %2.2f rps in %2.2fs. Avg %2.2f rps per process.\n",
+        fprintf(stdout, "Create rate:  %2.2f rps in %2.2fs. Avg %2.2f rps per process.\n",
                 (double) (files * size) / duration, duration, (double) files / duration_avg);
     }
 
+#ifdef HAVE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif // HAVE_MPI
+
+    rtime = times(&dummy);
     // cleanup ignoring errors
     for (i = 0; i < files; i++) {
         sprintf(filename, "%s/%s.file.%d.%d", url->file, hostname, pid, i);
@@ -166,6 +171,21 @@ int main(int argc, char *argv[]) {
                     url->file,
                     nfs_get_error(nfs));
         }
+    }
+
+    duration = ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
+    duration_avg = duration;
+
+#ifdef HAVE_MPI
+    MPI_Gather(&duration, 1, MPI_DOUBLE, durations, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    if (rank == 0) {
+        duration_avg = avg(durations, size);
+    }
+#endif // HAVE_MPI
+
+    if (rank == 0) {
+        fprintf(stdout, "Remove rate:  %2.2f rps in %2.2fs. Avg %2.2f rps per process.\n",
+                (double) (files * size) / duration, duration, (double) files / duration_avg);
     }
     rc = 0;
     out:
