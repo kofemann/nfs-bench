@@ -33,12 +33,12 @@ void usage(void) {
 
 
 double avg(double *array, int num_elements) {
-  double sum = 0.;
-  int i;
-  for (i = 0; i < num_elements; i++) {
-    sum += array[i];
-  }
-  return sum / num_elements;
+    double sum = 0.;
+    int i;
+    for (i = 0; i < num_elements; i++) {
+        sum += array[i];
+    }
+    return sum / num_elements;
 }
 
 int main(int argc, char *argv[]) {
@@ -97,7 +97,7 @@ int main(int argc, char *argv[]) {
     if (res != MPI_SUCCESS) {
         fprintf (stderr, "MPI_Comm_rank failed\n");
         exit(1);
-    } 
+    }
 #endif // HAVE_MPI
 
     hostname[1023] = '\0';
@@ -131,7 +131,7 @@ int main(int argc, char *argv[]) {
     MPI_Barrier(MPI_COMM_WORLD);
 #endif // HAVE_MPI
     if (rank == 0) {
-        fprintf(stdout , "Running %d iterations per process, totally %d processes.\n", files, size);
+        fprintf(stdout, "Running %d iterations per process, totally %d processes.\n", files, size);
     }
     rtime = times(&dummy);
     for (i = 0; i < files; i++) {
@@ -149,7 +149,7 @@ int main(int argc, char *argv[]) {
 
     duration = ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
     if (rank == 0) {
-        durations = (double *)malloc(sizeof(double) * size);
+        durations = (double *) malloc(sizeof(double) * size);
     }
 
     duration_avg = duration;
@@ -163,9 +163,18 @@ int main(int argc, char *argv[]) {
 
     if (rank == 0) {
         fprintf(stdout, "Speed:  %2.2f rps in %2.2fs. Avg %2.2f rps per process.\n",
-               (double) (files * size) / duration, duration, (double) files / duration_avg);
+                (double) (files * size) / duration, duration, (double) files / duration_avg);
     }
 
+    // cleanup ignoring errors
+    for (i = 0; i < files; i++) {
+        sprintf(filename, "%s/%s.file.%d.%d", url->file, hostname, pid, i);
+        if (nfs_unlink(nfs, filename) != 0) {
+            fprintf(stderr, "Failed to remove file %s: %s\n",
+                    url->file,
+                    nfs_get_error(nfs));
+        }
+    }
     rc = 0;
     out:
 
