@@ -25,8 +25,20 @@
 
 #define DEFAULT_FILES 100
 
+#define TRACE(m)  do {  fprintf(stdout, "trace: %s: %s:%d\n", m, __FILE__, __LINE__); } while(0);
+
 void usage(void) {
     exit(1);
+}
+
+
+double avg(double *array, int num_elements) {
+  double sum = 0.;
+  int i;
+  for (i = 0; i < num_elements; i++) {
+    sum += array[i];
+  }
+  return sum / num_elements;
 }
 
 int main(int argc, char *argv[]) {
@@ -46,6 +58,9 @@ int main(int argc, char *argv[]) {
     clock_t rtime;
     struct tms dummy;
     double duration;
+    double duration_avg;
+
+    double *durations = NULL;
 
     int res;
     // in case of MPI it will be reassigned
@@ -132,20 +147,30 @@ int main(int argc, char *argv[]) {
         }
     }
 
-#ifdef HAVE_MPI
-    MPI_Barrier(MPI_COMM_WORLD);
-#endif // HAVE_MPI
-
     duration = ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
     if (rank == 0) {
-        fprintf(stdout, "Speed:  %2.2f rps in %2.2fs\n",
-               (double) (files * size) / duration, duration);
+        durations = (double *)malloc(sizeof(double) * size);
+    }
+
+    duration_avg = duration;
+
+#ifdef HAVE_MPI
+    MPI_Gather(&duration, 1, MPI_DOUBLE, durations, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    if (rank == 0) {
+        duration_avg = avg(durations, size);
+    }
+#endif // HAVE_MPI
+
+    if (rank == 0) {
+        fprintf(stdout, "Speed:  %2.2f rps in %2.2fs. Avg %2.2f rps per process.\n",
+               (double) (files * size) / duration, duration, duration_avg);
     }
 
     rc = 0;
     out:
 
 #ifdef HAVE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
     res = MPI_Finalize();
     if (res != MPI_SUCCESS) {
         fprintf (stderr, "MPI_Finalize failed\n");
