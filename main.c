@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) {
 
     if (rank == 0) {
         fprintf(stdout, "Speed:  %2.2f rps in %2.2fs. Avg %2.2f rps per process.\n",
-               (double) (files * size) / duration, duration, duration_avg);
+               (double) (files * size) / duration, duration, (double) files / duration_avg);
     }
 
     rc = 0;
