@@ -6,16 +6,10 @@
 #endif
 
 #include <unistd.h>
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <sys/types.h>
 #include <sys/times.h>
-#include <sys/socket.h>
-#include <time.h>
-#include <pthread.h>
 #include <nfsc/libnfs.h>
 #include <getopt.h>
 
@@ -24,8 +18,6 @@
 #endif // HAVE_MPI
 
 #define DEFAULT_FILES 100
-
-#define TRACE(m)  do {  fprintf(stdout, "trace: %s: %s:%d\n", m, __FILE__, __LINE__); } while(0);
 
 void usage(void) {
     exit(1);
