@@ -4,7 +4,7 @@ Simple benchmark for synthetic NFS load
 
 ## Dependecies
 
-`nfs-bench` use libnfs to perform NFS requests
+`nfs-bench` uses [libnfs][1] to perform NFS requests
 
 ## Building
 
@@ -43,3 +43,9 @@ sacct  --format="partition,jobid,start,end,ElapsedRaw,NCPUS,state" -j 1473540
 
 scontrol show job 1473540
 ```
+
+## License
+
+This work is licensed under GNU General Public License version 2
+
+[1]: https://github.com/sahlberg/libnfs
