@@ -133,9 +133,7 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < files; i++) {
 
         sprintf(filename, "%s/%s.file.%d.%d", url->file, hostname, pid, i);
-        if (nfs_create(nfs, filename,
-                       O_WRONLY | O_CREAT | O_EXCL, 0660,
-                       &nfsfh) != 0) {
+        if (nfs_creat(nfs, filename, 0660, &nfsfh) != 0) {
             fprintf(stderr, "Failed to creat file %s: %s\n",
                     url->file,
                     nfs_get_error(nfs));
