@@ -20,6 +20,10 @@
 #define DEFAULT_FILES 100
 
 void usage(void) {
+    printf("Usage: nfs-bench [-f <num>] url\n");
+    printf("\n");
+    printf("Example:\n");
+    printf("   nfs-bench -f 100 nfs://my-nfs-server/test/path\n");
     exit(1);
 }
 
