@@ -194,7 +194,7 @@ int main(int argc, char *argv[]) {
 #endif // HAVE_MPI
 
     if (rank == 0) {
-        fprintf(stdout, "Create rate: total: %%2.2f, %2.2f rps \u00B1%2.2f, min: %2.2f, max: %2.2f, count: %d\n",
+        fprintf(stdout, "Create rate: total: %2.2f, %2.2f rps \u00B1%2.2f, min: %2.2f, max: %2.2f, count: %d\n",
                 stats.sum, stats.avg, stats.err, stats.min, stats.max, stats.count);
     }
 
