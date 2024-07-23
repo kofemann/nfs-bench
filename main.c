@@ -12,6 +12,7 @@
 #include <sys/times.h>
 #include <nfsc/libnfs.h>
 #include <getopt.h>
+#include <math.h>
 
 #ifdef HAVE_MPI
 #  include <mpi.h>
@@ -27,14 +28,49 @@ void usage(void) {
     exit(1);
 }
 
+/**
+ * requests statistics record
+ */
+typedef struct stats {
+    double sum;
+    double avg;
+    double min;
+    double max;
+    double err;
+    int count;
+} stats_t;
 
-double avg(double *array, int num_elements) {
-    double sum = 0.;
+
+void calculate_stats(double *array, int num_elements, stats_t *stats) {
+
+    stats->sum = 0.;
+    stats->avg = 0.;
+    stats->min = 0.;
+    stats->max = 0.;
+    stats->err = 0.;
+    stats->count = num_elements;
+
+    double dsum = 0.;
     int i;
     for (i = 0; i < num_elements; i++) {
-        sum += array[i];
+
+        if (array[i] > stats->max) {
+            stats->max = array[i];
+        }
+
+        if (array[i] < stats->min || stats->min == 0.) {
+            stats->min = array[i];
+        }
+
+        stats->sum += array[i];
     }
-    return sum / num_elements;
+
+    stats->avg = stats->sum / num_elements;
+    for (i = 0; i < num_elements; i++) {
+        double diff = array[i] - stats->avg;
+        dsum += diff*diff;
+    }
+    stats->err = sqrt( dsum/num_elements);
 }
 
 int main(int argc, char *argv[]) {
@@ -53,10 +89,10 @@ int main(int argc, char *argv[]) {
     char hostname[1024];
     clock_t rtime;
     struct tms dummy;
-    double duration;
-    double duration_avg;
+    double rate;
+    stats_t stats;
 
-    double *durations = NULL;
+    double *rates = NULL;
 
     int res;
     // in case of MPI it will be reassigned
@@ -141,23 +177,25 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    duration = ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
+    rate = (double)files / ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
     if (rank == 0) {
-        durations = (double *) malloc(sizeof(double) * size);
+        rates = (double *) malloc(sizeof(double) * size);
     }
 
-    duration_avg = duration;
+    stats.min = stats.max = stats.avg = stats.sum = rate;
+    stats.err = 0.;
+    stats.count = 1;
 
 #ifdef HAVE_MPI
-    MPI_Gather(&duration, 1, MPI_DOUBLE, durations, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gather(&rate, 1, MPI_DOUBLE, rates, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     if (rank == 0) {
-        duration_avg = avg(durations, size);
+        calculate_stats(rates, size, &stats);
     }
 #endif // HAVE_MPI
 
     if (rank == 0) {
-        fprintf(stdout, "Create rate:  %2.2f rps in %2.2fs. Avg %2.2f rps per process.\n",
-                (double) (files * size) / duration, duration, (double) files / duration_avg);
+        fprintf(stdout, "Create rate: total: %%2.2f, %2.2f rps \u00B1%2.2f, min: %2.2f, max: %2.2f, count: %d\n",
+                stats.sum, stats.avg, stats.err, stats.min, stats.max, stats.count);
     }
 
 #ifdef HAVE_MPI
@@ -175,19 +213,25 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    duration = ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
-    duration_avg = duration;
+    rate = (double)files / ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
+    if (rank == 0) {
+        rates = (double *) malloc(sizeof(double) * size);
+    }
+
+    stats.min = stats.max = stats.avg = stats.sum = rate;
+    stats.err = 0.;
+    stats.count = 1;
 
 #ifdef HAVE_MPI
-    MPI_Gather(&duration, 1, MPI_DOUBLE, durations, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    MPI_Gather(&rate, 1, MPI_DOUBLE, rates, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     if (rank == 0) {
-        duration_avg = avg(durations, size);
+        calculate_stats(rates, size, &stats);
     }
 #endif // HAVE_MPI
 
     if (rank == 0) {
-        fprintf(stdout, "Remove rate:  %2.2f rps in %2.2fs. Avg %2.2f rps per process.\n",
-                (double) (files * size) / duration, duration, (double) files / duration_avg);
+        fprintf(stdout, "Remove rate: total: %2.2f, %2.2f rps \u00B1%2.2f, min: %2.2f, max: %2.2f, count: %d\n",
+                stats.sum, stats.avg, stats.err, stats.min, stats.max, stats.count);
     }
     rc = 0;
     out:

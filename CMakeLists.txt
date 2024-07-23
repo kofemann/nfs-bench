@@ -8,10 +8,20 @@ find_path(LIBNFS_INCLUDE_DIRS
   PATHS /usr/include/nfsc
   NO_DEFAULT_PATH)
 
+find_path(LIBM_INCLUDE_DIRS
+        math.h
+        PATHS /usr/include
+        NO_DEFAULT_PATH)
+
 find_library(LIBNFS_LIBRARIES
   NAME nfs
   PATHS /usr/lib64
   NO_DEFAULT_PATH)
+
+find_library(LIBM
+        NAME m
+        PATHS /usr/lib64
+        NO_DEFAULT_PATH)
 
 find_package(MPI)
 if (MPI_FOUND)
@@ -23,7 +33,7 @@ else()
 endif()
 
 
-include_directories(${LIBNFS_INCLUDE_DIRS} ${MPI_C_INCLUDE_DIRS})
+include_directories(${LIBM_INCLUDE_DIRS} ${LIBNFS_INCLUDE_DIRS} ${MPI_C_INCLUDE_DIRS})
 
 add_executable(nfs_bench main.c)
-target_link_libraries(nfs_bench ${LIBNFS_LIBRARIES} ${MPI_C_LIBRARIES})
+target_link_libraries(nfs_bench ${LIBM} ${LIBNFS_LIBRARIES} ${MPI_C_LIBRARIES})
