@@ -146,7 +146,7 @@ int main(int argc, char *argv[]) {
         goto out;
     }
 
-    url = nfs_parse_url_full(nfs, argv[optind]);
+    url = nfs_parse_url_dir(nfs, argv[optind]);
     if (url == NULL) {
         fprintf(stderr, "%s\n", nfs_get_error(nfs));
         goto out;
@@ -168,10 +168,10 @@ int main(int argc, char *argv[]) {
     rtime = times(&dummy);
     for (i = 0; i < files; i++) {
 
-        sprintf(filename, "%s/%s.file.%d.%d", url->file, hostname, pid, i);
+        sprintf(filename, "/%s.file.%d.%d", hostname, pid, i);
         if (nfs_creat(nfs, filename, 0660, &nfsfh) != 0) {
             fprintf(stderr, "Failed to creat file %s: %s\n",
-                    url->file,
+                    filename,
                     nfs_get_error(nfs));
             goto out;
         }
@@ -205,10 +205,10 @@ int main(int argc, char *argv[]) {
     rtime = times(&dummy);
     // cleanup ignoring errors
     for (i = 0; i < files; i++) {
-        sprintf(filename, "%s/%s.file.%d.%d", url->file, hostname, pid, i);
+        sprintf(filename, "/%s.file.%d.%d", hostname, pid, i);
         if (nfs_unlink(nfs, filename) != 0) {
             fprintf(stderr, "Failed to remove file %s: %s\n",
-                    url->file,
+                    filename,
                     nfs_get_error(nfs));
         }
     }
