@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/times.h>
-#include <nfsc/libnfs.h>
+#include <libnfs.h>
 #include <getopt.h>
 #include <math.h>
 
