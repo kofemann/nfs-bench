@@ -1,5 +1,6 @@
 #include <sys/stat.h>
 #include <string.h>
+#include <sys/param.h>
 
 #ifdef HAVE_POLL_H
 #include <poll.h>
@@ -85,8 +86,8 @@ int main(int argc, char *argv[]) {
     int i;
     int c;
     int pid;
-    char filename[4096];
-    char hostname[1024];
+    char filename[FILENAME_MAX];
+    char hostname[MAXHOSTNAMELEN];
     clock_t rtime;
     struct tms dummy;
     double rate;
@@ -132,8 +133,7 @@ int main(int argc, char *argv[]) {
     }
 #endif // HAVE_MPI
 
-    hostname[1023] = '\0';
-    if (gethostname(hostname, 1023) != 0) {
+    if (gethostname(hostname, MAXHOSTNAMELEN) != 0) {
         perror("Failed to get hostname");
         exit(1);
     }
