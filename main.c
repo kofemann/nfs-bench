@@ -175,6 +175,10 @@ int main(int argc, char *argv[]) {
                     nfs_get_error(nfs));
             goto out;
         }
+	if (nfs_close(nfs, nfsfh)) {
+	   fprintf(stderr, "Failed to close file %s: %s\n", filename, nfs_get_error(nfs));
+	   goto out;
+	}
     }
 
     rate = (double)files / ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
