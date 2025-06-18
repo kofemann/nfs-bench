@@ -22,10 +22,15 @@
 #define DEFAULT_FILES 100
 
 void usage(void) {
-    printf("Usage: nfs-bench [-f <num>] url\n");
+    printf("Usage: nfs-bench [-f <num>] -u url\n");
+    printf("\n");
+    printf("  Options:\n");
+    printf("    -f <num>  Number of files to create and remove (default: %d)\n", DEFAULT_FILES);
+    printf("    -u unique directory per taks\n");
+    printf("\n");
     printf("\n");
     printf("Example:\n");
-    printf("   nfs-bench -f 100 nfs://my-nfs-server/test/path\n");
+    printf("   nfs-bench -u -f 100 nfs://my-nfs-server/test/path\n");
     exit(1);
 }
 
@@ -92,6 +97,7 @@ int main(int argc, char *argv[]) {
     struct tms dummy;
     double rate;
     stats_t stats;
+    int unique_working_dir = 0;
 
     double *rates = NULL;
 
@@ -99,10 +105,13 @@ int main(int argc, char *argv[]) {
     // in case of MPI it will be reassigned
     int size = 1, rank = 0;
 
-    while ((c = getopt(argc, argv, "f:")) != EOF) {
+    while ((c = getopt(argc, argv, "f:u")) != EOF) {
         switch (c) {
             case 'f':
                 files = atoi(optarg);
+                break;
+            case 'u':
+                unique_working_dir = 1;
                 break;
             case '?':
                 usage();
@@ -161,14 +170,41 @@ int main(int argc, char *argv[]) {
 
 #ifdef HAVE_MPI
     MPI_Barrier(MPI_COMM_WORLD);
+
 #endif // HAVE_MPI
     if (rank == 0) {
         fprintf(stdout, "Running %d iterations per process, totally %d processes.\n", files, size);
     }
+
+    if (unique_working_dir) {
+        // create unique working directory
+        sprintf(filename, "%s/%d", url->file, rank);
+        int rc = nfs_mkdir2(nfs, filename, 0755);
+        if (rc != 0 && rc != -17  /* NFS_ERR_EEXIST */) {
+            fprintf(stderr, "Failed to create directory %s: %s\n",
+                    filename,
+                    nfs_get_error(nfs));
+            goto out;
+        }
+        if (nfs_chdir(nfs, filename) != 0) {
+            fprintf(stderr, "Failed to change directory to %s: %s\n",
+                    filename,
+                    nfs_get_error(nfs));
+            goto out;
+        }
+    } else {
+        if (nfs_chdir(nfs, url->file) != 0) {
+            fprintf(stderr, "Failed to change directory to %s: %s\n",
+                    filename,
+                    nfs_get_error(nfs));
+            goto out;
+        }
+    }
+
     rtime = times(&dummy);
     for (i = 0; i < files; i++) {
 
-        sprintf(filename, "%s/%s.file.%d.%d", url->file, hostname, pid, i);
+        sprintf(filename, "%s.file.%d.%d", hostname, pid, i);
         if (nfs_open2(nfs, filename, O_RDWR | O_CREAT ,0660, &nfsfh) != 0) {
             fprintf(stderr, "Failed to creat file %s: %s\n",
                     filename,
@@ -209,7 +245,7 @@ int main(int argc, char *argv[]) {
     rtime = times(&dummy);
     // cleanup ignoring errors
     for (i = 0; i < files; i++) {
-        sprintf(filename, "%s/%s.file.%d.%d", url->file, hostname, pid, i);
+        sprintf(filename, "%s.file.%d.%d", hostname, pid, i);
         if (nfs_unlink(nfs, filename) != 0) {
             fprintf(stderr, "Failed to remove file %s: %s\n",
                     filename,
