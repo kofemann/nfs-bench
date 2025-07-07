@@ -145,6 +145,7 @@ int statFiles(struct nfs_context* nfs, pid_t pid, int files, const char* hostnam
             fprintf(stderr, "Failed to stat file %s: %s\n",
                     filename,
                     nfs_get_error(nfs));
+            return 1;
         }
     }
 
