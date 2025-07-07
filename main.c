@@ -79,6 +79,56 @@ void calculate_stats(double *array, int num_elements, stats_t *stats) {
     stats->err = sqrt( dsum/num_elements);
 }
 
+
+int createFiles(struct nfs_context* nfs, pid_t pid, int files, const char* hostname, double* rate) {
+    struct tms dummy;
+    clock_t rtime;
+    char filename[FILENAME_MAX];
+    struct nfsfh* nfsfh;
+    int i;
+
+    rtime = times(&dummy);
+    for (i = 0; i < files; i++) {
+        sprintf(filename, "%s.file.%d.%d", hostname, pid, i);
+        if (nfs_open2(nfs, filename, O_RDWR | O_CREAT, 0660, &nfsfh) != 0) {
+            fprintf(stderr, "Failed to creat file %s: %s\n",
+                    filename,
+                    nfs_get_error(nfs));
+            return 1;
+        }
+
+        if (nfs_close(nfs, nfsfh)) {
+            fprintf(stderr, "Failed to close file %s: %s\n", filename, nfs_get_error(nfs));
+            return 1;
+        }
+    }
+
+    *rate = (double)files / ((double)(times(&dummy) - rtime) / (double)sysconf(_SC_CLK_TCK));
+    return 0;
+}
+
+int deleteFiles(struct nfs_context* nfs, pid_t pid, int files, const char* hostname, double* rate) {
+    struct tms dummy;
+    clock_t rtime;
+    char filename[FILENAME_MAX];
+    struct nfsfh* nfsfh;
+    int i;
+
+    rtime = times(&dummy);
+    for (i = 0; i < files; i++) {
+        sprintf(filename, "%s.file.%d.%d", hostname, pid, i);
+        if (nfs_unlink(nfs, filename) != 0) {
+            fprintf(stderr, "Failed to remove file %s: %s\n",
+                    filename,
+                    nfs_get_error(nfs));
+        }
+    }
+
+    *rate = (double)files / ((double)(times(&dummy) - rtime) / (double)sysconf(_SC_CLK_TCK));
+    return 0;
+}
+
+
 int main(int argc, char *argv[]) {
 
 
@@ -87,21 +137,16 @@ int main(int argc, char *argv[]) {
     int rc = 1;
     struct nfs_context *nfs;
     struct nfs_url *url;
-    struct nfsfh *nfsfh;
-    int i;
     int c;
     int pid;
     char filename[FILENAME_MAX];
     char hostname[MAXHOSTNAMELEN];
-    clock_t rtime;
-    struct tms dummy;
     double rate;
     stats_t stats;
     int unique_working_dir = 0;
 
     double *rates = NULL;
 
-    int res;
     // in case of MPI it will be reassigned
     int size = 1, rank = 0;
 
@@ -201,23 +246,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    rtime = times(&dummy);
-    for (i = 0; i < files; i++) {
 
-        sprintf(filename, "%s.file.%d.%d", hostname, pid, i);
-        if (nfs_open2(nfs, filename, O_RDWR | O_CREAT ,0660, &nfsfh) != 0) {
-            fprintf(stderr, "Failed to creat file %s: %s\n",
-                    filename,
-                    nfs_get_error(nfs));
-            goto out;
-        }
-	if (nfs_close(nfs, nfsfh)) {
-	   fprintf(stderr, "Failed to close file %s: %s\n", filename, nfs_get_error(nfs));
-	   goto out;
-	}
+    rc = createFiles(nfs, pid, files, hostname, &rate);
+    if (rc) {
+        goto out;
     }
 
-    rate = (double)files / ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
     if (rank == 0) {
         rates = (double *) malloc(sizeof(double) * size);
     }
@@ -242,18 +276,11 @@ int main(int argc, char *argv[]) {
     MPI_Barrier(MPI_COMM_WORLD);
 #endif // HAVE_MPI
 
-    rtime = times(&dummy);
-    // cleanup ignoring errors
-    for (i = 0; i < files; i++) {
-        sprintf(filename, "%s.file.%d.%d", hostname, pid, i);
-        if (nfs_unlink(nfs, filename) != 0) {
-            fprintf(stderr, "Failed to remove file %s: %s\n",
-                    filename,
-                    nfs_get_error(nfs));
-        }
+    rc = deleteFiles(nfs, pid, files, hostname, &rate);
+    if (rc) {
+        goto out;
     }
 
-    rate = (double)files / ((double) (times(&dummy) - rtime) / (double) sysconf(_SC_CLK_TCK));
     if (rank == 0) {
         rates = (double *) malloc(sizeof(double) * size);
     }
