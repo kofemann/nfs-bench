@@ -130,6 +130,29 @@ int deleteFiles(struct nfs_context* nfs, pid_t pid, int files, const char* hostn
     return 0;
 }
 
+
+int statFiles(struct nfs_context* nfs, pid_t pid, int files, const char* hostname, double* rate) {
+    struct tms dummy;
+    clock_t rtime;
+    char filename[FILENAME_MAX];
+    struct nfs_stat_64 stat;
+    int i;
+
+    rtime = times(&dummy);
+    for (i = 0; i < files; i++) {
+        sprintf(filename, "%s.file.%d.%d", hostname, pid, i);
+        if (nfs_stat64(nfs, filename, &stat) != 0) {
+            fprintf(stderr, "Failed to stat file %s: %s\n",
+                    filename,
+                    nfs_get_error(nfs));
+        }
+    }
+
+    *rate = (double)files / ((double)(times(&dummy) - rtime) / (double)sysconf(_SC_CLK_TCK));
+    return 0;
+}
+
+
 /**
  * Init stats with given rate. It initialized as with a single measurement,
  * as MPI call will update it with values from other nodes.
@@ -270,6 +293,13 @@ int main(int argc, char *argv[]) {
 #ifdef HAVE_MPI
             MPI_Barrier(MPI_COMM_WORLD);
 #endif // HAVE_MPI
+            rc = statFiles(nfs, pid, warmup_loops, hostname, &rate);
+            if (rc) {
+                goto out;
+            }
+#ifdef HAVE_MPI
+            MPI_Barrier(MPI_COMM_WORLD);
+#endif // HAVE_MPI
             rc = deleteFiles(nfs, pid, warmup_loops, hostname, &rate);
             if (rc) {
                 goto out;
@@ -279,15 +309,12 @@ int main(int argc, char *argv[]) {
 #endif // HAVE_MPI
         }
         fprintf(stdout, "Running %d iterations per process, totally %d processes.\n\n", files, size);
+        rates = (double *) malloc(sizeof(double) * size);
     }
 
     rc = createFiles(nfs, pid, files, hostname, &rate);
     if (rc) {
         goto out;
-    }
-
-    if (rank == 0) {
-        rates = (double *) malloc(sizeof(double) * size);
     }
 
     init_stats(&stats, rate);
@@ -308,13 +335,32 @@ int main(int argc, char *argv[]) {
     MPI_Barrier(MPI_COMM_WORLD);
 #endif // HAVE_MPI
 
-    rc = deleteFiles(nfs, pid, files, hostname, &rate);
+    rc = statFiles(nfs, pid, files, hostname, &rate);
     if (rc) {
         goto out;
     }
 
+    init_stats(&stats, rate);
+
+#ifdef HAVE_MPI
+    MPI_Gather(&rate, 1, MPI_DOUBLE, rates, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     if (rank == 0) {
-        rates = (double *) malloc(sizeof(double) * size);
+        calculate_stats(rates, size, &stats);
+    }
+#endif // HAVE_MPI
+
+    if (rank == 0) {
+        fprintf(stdout, "Stat rate: total: %2.2f, %2.2f rps \u00B1%2.2f, min: %2.2f, max: %2.2f, count: %d\n",
+                stats.sum, stats.avg, stats.err, stats.min, stats.max, stats.count);
+    }
+
+#ifdef HAVE_MPI
+    MPI_Barrier(MPI_COMM_WORLD);
+#endif // HAVE_MPI
+
+    rc = deleteFiles(nfs, pid, files, hostname, &rate);
+    if (rc) {
+        goto out;
     }
 
     init_stats(&stats, rate);
