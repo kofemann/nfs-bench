@@ -21,12 +21,15 @@
 
 #define DEFAULT_FILES 100
 
+#define DEFAULT_WARMUP_LOOPS 0
+
 void usage(void) {
-    printf("Usage: nfs-bench [-f <num>] -u url\n");
+    printf("Usage: nfs-bench [-f <num>] [-u] [-w <num>] url\n");
     printf("\n");
     printf("  Options:\n");
     printf("    -f <num>  Number of files to create and remove (default: %d)\n", DEFAULT_FILES);
-    printf("    -u unique directory per taks\n");
+    printf("    -u unique directory per tasks\n");
+    printf("    -w <num> number of warmup iterations (default: %d)\n", DEFAULT_WARMUP_LOOPS);
     printf("\n");
     printf("\n");
     printf("Example:\n");
@@ -127,6 +130,15 @@ int deleteFiles(struct nfs_context* nfs, pid_t pid, int files, const char* hostn
     return 0;
 }
 
+/**
+ * Init stats with given rate. It initialized as with a single measurement,
+ * as MPI call will update it with values from other nodes.
+ */
+void init_stats(struct stats *stats, double rate) {
+    stats->min = stats->max = stats->avg = stats->sum = rate;
+    stats->err = 0.;
+    stats->count = 1;
+}
 
 int main(int argc, char *argv[]) {
 
@@ -143,19 +155,23 @@ int main(int argc, char *argv[]) {
     double rate;
     stats_t stats;
     int unique_working_dir = 0;
+    unsigned int warmup_loops = DEFAULT_WARMUP_LOOPS;
 
     double *rates = NULL;
 
     // in case of MPI it will be reassigned
     int size = 1, rank = 0;
 
-    while ((c = getopt(argc, argv, "f:u")) != EOF) {
+    while ((c = getopt(argc, argv, "f:uw:")) != EOF) {
         switch (c) {
             case 'f':
                 files = atoi(optarg);
                 break;
             case 'u':
                 unique_working_dir = 1;
+                break;
+            case 'w':
+                warmup_loops = atoi(optarg);
                 break;
             case '?':
                 usage();
@@ -216,9 +232,7 @@ int main(int argc, char *argv[]) {
     MPI_Barrier(MPI_COMM_WORLD);
 
 #endif // HAVE_MPI
-    if (rank == 0) {
-        fprintf(stdout, "Running %d iterations per process, totally %d processes.\n", files, size);
-    }
+
 
     if (unique_working_dir) {
         // create unique working directory
@@ -246,6 +260,27 @@ int main(int argc, char *argv[]) {
     }
 
 
+    if (rank == 0) {
+        if (warmup_loops) {
+            fprintf(stdout, "Warmup. %d iterations per process\n", warmup_loops);
+            rc = createFiles(nfs, pid, warmup_loops, hostname, &rate);
+            if (rc) {
+                goto out;
+            }
+#ifdef HAVE_MPI
+            MPI_Barrier(MPI_COMM_WORLD);
+#endif // HAVE_MPI
+            rc = deleteFiles(nfs, pid, warmup_loops, hostname, &rate);
+            if (rc) {
+                goto out;
+            }
+#ifdef HAVE_MPI
+            MPI_Barrier(MPI_COMM_WORLD);
+#endif // HAVE_MPI
+        }
+        fprintf(stdout, "Running %d iterations per process, totally %d processes.\n\n", files, size);
+    }
+
     rc = createFiles(nfs, pid, files, hostname, &rate);
     if (rc) {
         goto out;
@@ -255,9 +290,7 @@ int main(int argc, char *argv[]) {
         rates = (double *) malloc(sizeof(double) * size);
     }
 
-    stats.min = stats.max = stats.avg = stats.sum = rate;
-    stats.err = 0.;
-    stats.count = 1;
+    init_stats(&stats, rate);
 
 #ifdef HAVE_MPI
     MPI_Gather(&rate, 1, MPI_DOUBLE, rates, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -284,9 +317,7 @@ int main(int argc, char *argv[]) {
         rates = (double *) malloc(sizeof(double) * size);
     }
 
-    stats.min = stats.max = stats.avg = stats.sum = rate;
-    stats.err = 0.;
-    stats.count = 1;
+    init_stats(&stats, rate);
 
 #ifdef HAVE_MPI
     MPI_Gather(&rate, 1, MPI_DOUBLE, rates, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
