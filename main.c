@@ -23,6 +23,8 @@
 
 #define DEFAULT_WARMUP_LOOPS 0
 
+#define OUT_FORMAT "%16s rate: total: %8.2f\t%8.2f rps \u00B1%8.2f, min: %8.2f, max: %8.2f, count: %8\n"
+
 void usage(void) {
     printf("Usage: nfs-bench [-f <num>] [-u] [-w <num>] url\n");
     printf("\n");
@@ -328,7 +330,7 @@ int main(int argc, char *argv[]) {
 #endif // HAVE_MPI
 
     if (rank == 0) {
-        fprintf(stdout, "Create rate: total: %2.2f, %2.2f rps \u00B1%2.2f, min: %2.2f, max: %2.2f, count: %d\n",
+        fprintf(stdout, OUT_FORMAT, "Create",
                 stats.sum, stats.avg, stats.err, stats.min, stats.max, stats.count);
     }
 
@@ -351,7 +353,7 @@ int main(int argc, char *argv[]) {
 #endif // HAVE_MPI
 
     if (rank == 0) {
-        fprintf(stdout, "Stat rate: total: %2.2f, %2.2f rps \u00B1%2.2f, min: %2.2f, max: %2.2f, count: %d\n",
+        fprintf(stdout, OUT_FORMAT, "Stat",
                 stats.sum, stats.avg, stats.err, stats.min, stats.max, stats.count);
     }
 
@@ -374,7 +376,7 @@ int main(int argc, char *argv[]) {
 #endif // HAVE_MPI
 
     if (rank == 0) {
-        fprintf(stdout, "Remove rate: total: %2.2f, %2.2f rps \u00B1%2.2f, min: %2.2f, max: %2.2f, count: %d\n",
+        fprintf(stdout, OUT_FORMAT, "Remove",
                 stats.sum, stats.avg, stats.err, stats.min, stats.max, stats.count);
     }
     rc = 0;
