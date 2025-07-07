@@ -111,7 +111,6 @@ int deleteFiles(struct nfs_context* nfs, pid_t pid, int files, const char* hostn
     struct tms dummy;
     clock_t rtime;
     char filename[FILENAME_MAX];
-    struct nfsfh* nfsfh;
     int i;
 
     rtime = times(&dummy);
