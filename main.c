@@ -23,7 +23,7 @@
 
 #define DEFAULT_WARMUP_LOOPS 0
 
-#define OUT_FORMAT "%16s rate: total: %8.2f\t%8.2f rps \u00B1%8.2f, min: %8.2f, max: %8.2f, count: %8\n"
+#define OUT_FORMAT "%16s rate: total: %8.2f\t%8.2f rps \u00B1%8.2f, min: %8.2f, max: %8.2f, count: %8d\n"
 
 void usage(void) {
     printf("Usage: nfs-bench [-f <num>] [-u] [-w <num>] url\n");
