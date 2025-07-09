@@ -91,7 +91,6 @@ int createFiles(struct nfs_context* nfs, pid_t pid, int files, const char* hostn
     char filename[FILENAME_MAX];
     struct nfsfh* nfsfh;
     int i;
-    int res;
 
     rtime = times(&dummy);
     for (i = 0; i < files; i++) {
@@ -173,6 +172,7 @@ int main(int argc, char *argv[]) {
     int files = DEFAULT_FILES;
 
     int rc = 1;
+    int res;
     struct nfs_context *nfs;
     struct nfs_url *url;
     int c;
